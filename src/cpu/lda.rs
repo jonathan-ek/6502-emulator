@@ -10,7 +10,7 @@ impl CPU {
     pub const LDA_INDX: u8 = 0xA1;
     pub const LDA_INDY: u8 = 0xB1;
 
-    pub fn run_lda(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool{
+    pub fn run_lda(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool{
         if inst == CPU::LDA_IM {
             self.a = self.read_next_byte(&mut cycles, *mem);
             self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
@@ -52,7 +52,7 @@ mod tests {
     #[test]
     fn test_lda_im_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_IM;
         mem[0xFFFD] = 0x48;
         let cycles = 2;
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_lda_im_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_IM;
         mem[0xFFFD] = 0b10000001;
         let cycles = 2;
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn test_lda_im_3() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_IM;
         mem[0xFFFD] = 0b00000000;
         let cycles = 2;
@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn test_lda_zp_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ZP;
         mem[0xFFFD] = 0x48;
         mem[0x0048] = 0x42;
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn test_lda_zpx_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ZPX;
         mem[0xFFFD] = 0x80;
         mem[0x008F] = 0x41;
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn test_lda_zpx_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ZPX;
         mem[0xFFFD] = 0x80;
         mem[0x007F] = 0x40;
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_lda_abs() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ABS;
         mem[0xFFFD] = 0x80;
         mem[0xFFFE] = 0x54;
@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_lda_absx_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ABSX;
         mem[0xFFFD] = 0x80;
         mem[0xFFFE] = 0x54;
@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn test_lda_absx_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ABSX;
         mem[0xFFFD] = 0x80;
         mem[0xFFFE] = 0x54;
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn test_lda_absy_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ABSY;
         mem[0xFFFD] = 0x80;
         mem[0xFFFE] = 0x54;
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn test_lda_absy_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_ABSY;
         mem[0xFFFD] = 0x80;
         mem[0xFFFE] = 0x54;
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_lda_indx_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_INDX;
         mem[0xFFFD] = 0x80;
         mem[0x0090] = 0x54;
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_lda_indx_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_INDX;
         mem[0xFFFD] = 0x80;
         mem[0x0072] = 0x54;
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn test_lda_indy_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_INDY;
         mem[0xFFFD] = 0x80;
         mem[0x0080] = 0x54;
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn test_lda_indy_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LDA_INDY;
         mem[0xFFFD] = 0x80;
         mem[0x0080] = 0x54;

@@ -97,27 +97,27 @@ impl CPU {
     pub(crate) const FLAG_V: u8 = 0b01000000;
     pub(crate) const FLAG_N: u8 = 0b10000000;
 
-    fn read_next_byte(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_next_byte(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let res = self.read_byte(&mut cycles, mem, self.pc);
         self.pc += 1;
         return res;
     }
-    fn read_byte(&mut self, cycles: &mut u32, mem: [u8; 0xFFFF], addr: u16) -> u8 {
+    fn read_byte(&mut self, cycles: &mut u32, mem: [u8; 0x10000], addr: u16) -> u8 {
         *cycles += 1;
         return mem[usize::from(addr)];
     }
-    fn write_byte(&mut self, cycles: &mut u32, mem: &mut [u8; 0xFFFF], addr: u16, value: u8) -> u8 {
+    fn write_byte(&mut self, cycles: &mut u32, mem: &mut [u8; 0x10000], addr: u16, value: u8) -> u8 {
         *cycles += 1;
         (*mem)[usize::from(addr)] = value;
         return mem[usize::from(addr)];
     }
-    fn push_to_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], value: u8) {
+    fn push_to_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], value: u8) {
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
         self.write_byte(&mut cycles, mem, addr, value);
         *cycles += 1;
         self.sp += 1;
     }
-    fn pop_from_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF]) -> u8 {
+    fn pop_from_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000]) -> u8 {
         *cycles += 1;
         self.sp -= 1;
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
@@ -139,44 +139,44 @@ impl CPU {
             }
         }
     }
-    fn read_zero_page_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u16 {
+    fn read_zero_page_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
         let addr = self.read_next_byte(&mut cycles, mem);
         return addr as u16;
     }
-    fn read_zero_page(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_zero_page(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_zero_page_addr(&mut cycles, mem);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    fn read_zero_page_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u16 {
+    fn read_zero_page_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
         let mut addr = self.read_next_byte(&mut cycles, mem);
         *cycles += 1;  // read x
         addr = addr.wrapping_add(self.x);
         return addr as u16;
     }
-    fn read_zero_page_x(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_zero_page_x(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_zero_page_x_addr(&mut cycles, mem);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    fn read_zero_page_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u16 {
+    fn read_zero_page_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
         let mut addr = self.read_next_byte(&mut cycles, mem);
         *cycles += 1;  // read y
         addr = addr.wrapping_add(self.y);
         return addr as u16;
     }
-    fn read_zero_page_y(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_zero_page_y(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_zero_page_y_addr(&mut cycles, mem);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    fn read_abs_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u16 {
+    fn read_abs_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
         let lsb = self.read_next_byte(&mut cycles, mem);
         let msb = self.read_next_byte(&mut cycles, mem);
         return ((msb as u16) << 8) + (lsb as u16);
     }
-    fn read_abs(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_abs(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_abs_addr(&mut cycles, mem);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    fn read_abs_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF], page_cycle: bool) -> u16 {
+    fn read_abs_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
         let lsb = self.read_next_byte(&mut cycles, mem);
         let msb = self.read_next_byte(&mut cycles, mem);
         let addr: u16 = ((msb as u16) << 8) + (lsb as u16);
@@ -186,11 +186,11 @@ impl CPU {
         }
         return offset_addr;
     }
-    fn read_abs_x(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_abs_x(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_abs_x_addr(&mut cycles, mem, true);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    fn read_abs_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF], page_cycle: bool) -> u16 {
+    fn read_abs_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
         let lsb = self.read_next_byte(&mut cycles, mem);
         let msb = self.read_next_byte(&mut cycles, mem);
         let addr: u16 = ((msb as u16) << 8) + (lsb as u16);
@@ -200,7 +200,7 @@ impl CPU {
         }
         return offset_addr;
     }
-    fn read_indexed_indirect_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u16 {
+    fn read_indexed_indirect_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
         // INDX
         let mut zp_addr = self.read_next_byte(&mut cycles, mem);
         *cycles += 1;  // read x
@@ -209,7 +209,7 @@ impl CPU {
         let msb = self.read_byte(&mut cycles, mem, (zp_addr + 1) as u16);
         return ((msb as u16) << 8) + (lsb as u16);
     }
-    fn read_indirect_indexed_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF], page_cycle: bool) -> u16 {
+    fn read_indirect_indexed_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
         // INDY
         let zp_addr = self.read_next_byte(&mut cycles, mem);
         let lsb = self.read_byte(&mut cycles, mem, zp_addr as u16);
@@ -221,11 +221,11 @@ impl CPU {
         }
         return offset_addr;
     }
-    fn read_abs_y(&mut self, mut cycles: &mut u32, mem: [u8; 0xFFFF]) -> u8 {
+    fn read_abs_y(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
         let addr = self.read_abs_y_addr(&mut cycles, mem, true);
         return self.read_byte(&mut cycles, mem, addr);
     }
-    pub fn run(&mut self, cycles: u32, mem: &mut [u8; 0xFFFF]) -> u32 {
+    pub fn run(&mut self, cycles: u32, mem: &mut [u8; 0x10000]) -> u32 {
         let mut cpu_cycles = 0;
         while cpu_cycles < cycles {
             let inst = self.read_next_byte(&mut cpu_cycles, *mem);

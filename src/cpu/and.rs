@@ -14,7 +14,7 @@ impl CPU {
         self.a = self.a & val;
         self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
     }
-    pub fn run_and(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_and(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::AND_IM {
             let val = self.read_next_byte(&mut cycles, *mem);
             self.and(val);
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_and_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::AND_IM;
         mem[0xFFFD] = 0b1010_0101;
         cpu.a = 0b0011_0011;
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_and_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::AND_IM;
         mem[0xFFFD] = 0b1010_0101;
         cpu.a = 0b1100_0011;
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_and_3() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::AND_IM;
         mem[0xFFFD] = 0x00;
         cpu.a = 0b1100_0011;

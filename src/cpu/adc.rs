@@ -21,7 +21,7 @@ impl CPU {
         self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
     }
 
-    pub fn run_adc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_adc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::ADC_IM {
             let val = self.read_next_byte(&mut cycles, *mem);
             self.adc(val);
@@ -68,7 +68,7 @@ mod tests {
     fn test_adc_1() {
         // 0 + 0 = 0
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0x00;
         cpu.c = false;
@@ -85,7 +85,7 @@ mod tests {
     fn test_adc_2() {
         // 0 + 0 + c = 1
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0x00;
         cpu.c = true;
@@ -102,7 +102,7 @@ mod tests {
     fn test_adc_3() {
         // pos + pos + c
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 20;
         cpu.c = true;
@@ -119,7 +119,7 @@ mod tests {
     fn test_adc_4() {
         // pos + neg
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0b1110_1111;  // -17
         cpu.c = true;
@@ -136,7 +136,7 @@ mod tests {
     fn test_adc_5() {
         // test carry
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0xff;
         cpu.c = false;
@@ -154,7 +154,7 @@ mod tests {
     fn test_adc_6() {
         // test overflow
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0b1111_1111; // -1
         cpu.c = false;
@@ -171,7 +171,7 @@ mod tests {
     fn test_adc_7() {
         // test overflow 2
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0b1111_1111; // -1
         cpu.c = true;
@@ -188,7 +188,7 @@ mod tests {
     fn test_adc_8() {
         // test overflow 2
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0x01; // 1
         cpu.c = false;
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn test_adc_9() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ADC_IM;
         mem[0xFFFD] = 0b00000001; // 1
         cpu.c = false;

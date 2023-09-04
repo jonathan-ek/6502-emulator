@@ -9,7 +9,7 @@ impl CPU {
     pub const STA_INDX: u8 = 0x81;
     pub const STA_INDY: u8 = 0x91;
 
-    pub fn run_sta(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_sta(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::STA_ZP {
         } else if inst == CPU::STA_ZPX {
         } else if inst == CPU::STA_ABS {
@@ -31,7 +31,7 @@ mod tests {
     #[test]
     fn test_nop() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::NOP;
         let cycles = 2;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);

@@ -10,7 +10,7 @@ impl CPU {
     pub const SBC_INDX: u8 = 0xE1;
     pub const SBC_INDY: u8 = 0xF1;
 
-    pub fn run_sbc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_sbc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::SBC_IM {
         } else if inst == CPU::SBC_ZP {
         } else if inst == CPU::SBC_ZPX {
@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn test_nop() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::NOP;
         let cycles = 2;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);

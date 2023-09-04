@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const PHP: u8 = 0x08;
 
-    pub fn run_php(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_php(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::PHP {
             let mut res: u8 = 0;
             if self.c { res += CPU::FLAG_C; }
@@ -28,7 +28,7 @@ mod tests {
     #[test]
     fn test_php() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::PHP;
         cpu.c = true;
         cpu.n = true;

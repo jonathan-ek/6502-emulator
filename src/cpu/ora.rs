@@ -10,7 +10,7 @@ impl CPU {
     pub const ORA_INDX: u8 = 0x01;
     pub const ORA_INDY: u8 = 0x11;
 
-    pub fn run_ora(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_ora(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::ORA_IM {
             let value = self.read_next_byte(&mut cycles, *mem);
             self.a = self.a | value;
@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_ora_absx() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ORA_ABSX;
         mem[0xFFFD] = 0x12;
         mem[0xFFFE] = 0x55;

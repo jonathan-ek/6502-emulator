@@ -6,11 +6,29 @@ impl CPU {
     pub const INC_ABS: u8 = 0xEE;
     pub const INC_ABSX: u8 = 0xFE;
 
-    pub fn run_inc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    fn inc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], addr: u16) {
+        let mut val = self.read_byte(&mut cycles, *mem, addr);
+        val = val.wrapping_add(1);
+        *cycles += 1;
+        self.write_byte(&mut cycles, mem, addr, val);
+        self.set_flags(val, CPU::FLAG_N | CPU::FLAG_Z);
+        return;
+    }
+
+    pub fn run_inc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::INC_ZP {
+            let addr = self.read_zero_page_addr(&mut cycles, *mem);
+            self.inc(&mut cycles, mem, addr);
         } else if inst == CPU::INC_ZPX {
+            let addr = self.read_zero_page_x_addr(&mut cycles, *mem);
+            self.inc(&mut cycles, mem, addr);
         } else if inst == CPU::INC_ABS {
+            let addr = self.read_abs_addr(&mut cycles, *mem);
+            self.inc(&mut cycles, mem, addr);
         } else if inst == CPU::INC_ABSX {
+            let addr = self.read_abs_x_addr(&mut cycles, *mem, false);
+            *cycles += 1;
+            self.inc(&mut cycles, mem, addr);
         } else {
             return false;
         }
@@ -23,11 +41,79 @@ mod tests {
     use crate::cpu::CPU;
 
     #[test]
-    fn test_nop() {
+    fn test_inc_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
-        mem[0xFFFC] = CPU::NOP;
-        let cycles = 2;
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ZP;
+        mem[0xFFFD] = 0x54;
+        mem[0x0054] = 54;
+        let cycles = 5;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x0054], 55);
+        assert_eq!(cpu.n, false);
+        assert_eq!(cpu.z, false);
+    }
+    #[test]
+    fn test_inc_2() {
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ZP;
+        mem[0xFFFD] = 0x54;
+        mem[0x0054] = 0xff;
+        let cycles = 5;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x0054], 0);
+        assert_eq!(cpu.n, false);
+        assert_eq!(cpu.z, true);
+    }
+    #[test]
+    fn test_inc_3() {
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ZP;
+        mem[0xFFFD] = 0x54;
+        mem[0x0054] = 0x7F;
+        let cycles = 5;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x0054], 0x80);
+        assert_eq!(cpu.n, true);
+        assert_eq!(cpu.z, false);
+    }
+    #[test]
+    fn test_inc_4() {
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ZPX;
+        mem[0xFFFD] = 0x50;
+        mem[0x0054] = 8;
+        cpu.x = 4;
+        let cycles = 6;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x0054], 9);
+    }
+    #[test]
+    fn test_inc_5() {
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ABS;
+        mem[0xFFFD] = 0x50;
+        mem[0xFFFE] = 0x40;
+        mem[0x4050] = 8;
+        let cycles = 6;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x4050], 9);
+    }
+    #[test]
+    fn test_inc_6() {
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        mem[0xFFFC] = CPU::INC_ABSX;
+        mem[0xFFFD] = 0x50;
+        mem[0xFFFE] = 0x40;
+        mem[0x4054] = 8;
+        cpu.x = 4;
+        let cycles = 7;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(mem[0x4054], 9);
     }
 }

@@ -14,7 +14,7 @@ impl CPU {
         return res;
     }
 
-    pub fn run_asl(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_asl(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::ASL_A {
             self.a = self.asl(self.a);
             *cycles += 1;
@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn test_asl_1() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_A;
         cpu.a = 0b1000_0000;
         let cycles = 2;
@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn test_asl_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_A;
         cpu.a = 0b1100_0001;
         let cycles = 2;
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn test_asl_3() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_A;
         cpu.a = 0b0100_0001;
         let cycles = 2;
@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_asl_4() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_ZP;
         mem[0xFFFD] = 0x01;
         mem[0x0001] = 0b0100_0001;
@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn test_asl_zpx() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_ZPX;
         mem[0xFFFD] = 0x12;
         mem[0x0036] = 0b1010_1101;
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_asl_abs() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_ABS;
         mem[0xFFFD] = 0x12;
         mem[0xFFFE] = 0x34;
@@ -143,7 +143,7 @@ mod tests {
     #[test]
     fn test_asl_absx() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::ASL_ABSX;
         mem[0xFFFD] = 0x12;
         mem[0xFFFE] = 0x55;

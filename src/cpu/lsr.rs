@@ -7,7 +7,7 @@ impl CPU {
     pub const LSR_ABS: u8 = 0x4e;
     pub const LSR_ABSX: u8 = 0x5e;
 
-    pub fn run_lsr(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0xFFFF], inst: u8) -> bool {
+    pub fn run_lsr(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::LSR_A {
             *cycles += 1;
             self.c = self.a & 0b0000_0001 == 1;
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn test_lsr_a() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_A;
         cpu.a = 0b1010_1100;
         let cycles = 2;
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn test_lsr_a_2() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_A;
         cpu.a = 0b1010_1101;
         let cycles = 2;
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_lsr_zp() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_ZP;
         mem[0xFFFD] = 0x12;
         mem[0x0012] = 0b1010_1101;
@@ -96,7 +96,7 @@ mod tests {
     #[test]
     fn test_lsr_zpx() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_ZPX;
         mem[0xFFFD] = 0x12;
         mem[0x0036] = 0b1010_1101;
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn test_lsr_abs() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_ABS;
         mem[0xFFFD] = 0x12;
         mem[0xFFFE] = 0x34;
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn test_lsr_absx() {
         let mut cpu = CPU::new();
-        let mut mem: [u8; 0xFFFF] = [0; 0xFFFF];
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::LSR_ABSX;
         mem[0xFFFD] = 0x12;
         mem[0xFFFE] = 0x55;
