@@ -12,7 +12,7 @@ impl CPU {
             self.push_to_stack(&mut cycles, mem, lsb);
             self.push_to_stack(&mut cycles, mem, msb);
             self.pc = addr;
-            *cycles += 1;
+            *cycles -= 1;
         } else {
             return false;
         }
@@ -25,11 +25,17 @@ mod tests {
     use crate::cpu::CPU;
 
     #[test]
-    fn test_nop() {
+    fn test_jsr() {
         let mut cpu = CPU::new();
         let mut mem: [u8; 0x10000] = [0; 0x10000];
-        mem[0xFFFC] = CPU::NOP;
-        let cycles = 2;
+        mem[0xFFFC] = CPU::JSR;
+        mem[0xFFFD] = 0x00;
+        mem[0xFFFE] = 0x60;
+        let cycles = 6;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.pc, 0x6000);
+        assert_eq!(cpu.sp, 0xFD);
+        assert_eq!(mem[0x01FF], 0xFE);
+        assert_eq!(mem[0x01FE], 0xFF);
     }
 }

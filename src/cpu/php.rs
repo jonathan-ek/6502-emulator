@@ -10,9 +10,10 @@ impl CPU {
             if self.z { res += CPU::FLAG_Z; }
             if self.i { res += CPU::FLAG_I; }
             if self.d { res += CPU::FLAG_D; }
-            if self.b { res += CPU::FLAG_B; }
+            res += CPU::FLAG_B;
             if self.v { res += CPU::FLAG_V; }
             if self.n { res += CPU::FLAG_N; }
+            res += 0b0010_0000;
             self.push_to_stack(&mut cycles, mem, res)
         } else {
             return false;
@@ -34,9 +35,9 @@ mod tests {
         cpu.n = true;
         cpu.z = true;
         let cycles = 3;
-        assert_eq!(cpu.sp, 0, "sp reg");
+        assert_eq!(cpu.sp, 0xFF, "sp reg");
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
-        assert_eq!(mem[0x0100], 0b1000_0011, "a reg");
-        assert_eq!(cpu.sp, 1, "sp reg");
+        assert_eq!(mem[0x01FF], 0b1000_0011, "a reg");
+        assert_eq!(cpu.sp, 0xFE, "sp reg");
     }
 }

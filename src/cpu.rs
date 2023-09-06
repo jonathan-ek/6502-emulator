@@ -74,7 +74,7 @@ impl CPU {
     pub fn new() -> CPU {
         CPU {
             pc: 0xFFFC,
-            sp: 0,
+            sp: 255,
             a: 0,
             x: 0,
             y: 0,
@@ -115,11 +115,11 @@ impl CPU {
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
         self.write_byte(&mut cycles, mem, addr, value);
         *cycles += 1;
-        self.sp += 1;
+        self.sp = self.sp.wrapping_sub(1);
     }
     fn pop_from_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000]) -> u8 {
         *cycles += 1;
-        self.sp -= 1;
+        self.sp = self.sp.wrapping_add(1);
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
         return self.read_byte(&mut cycles, *mem, addr);
     }
@@ -227,8 +227,41 @@ impl CPU {
     }
     pub fn run(&mut self, cycles: u32, mem: &mut [u8; 0x10000]) -> u32 {
         let mut cpu_cycles = 0;
-        while cpu_cycles < cycles {
+        let mut prev_pc: u16 = 0;
+        let mut prev_inst: u8 = 0;
+        let mut prev_sp: u8 = 0;
+        let mut prev_a: u8 = 0;
+        let mut prev_x: u8 = 0;
+        let mut prev_y: u8 = 0;
+        let mut prev_res: u8 = 0;
+        while cycles == 0 || cpu_cycles < cycles {
             let inst = self.read_next_byte(&mut cpu_cycles, *mem);
+            let mut res: u8 = 0;
+            if self.c { res += CPU::FLAG_C; }
+            if self.z { res += CPU::FLAG_Z; }
+            if self.i { res += CPU::FLAG_I; }
+            if self.d { res += CPU::FLAG_D; }
+            if self.b { res += CPU::FLAG_B; }
+            if self.v { res += CPU::FLAG_V; }
+            if self.n { res += CPU::FLAG_N; }
+            println!("addr: {:#06x}, inst: {:#04x}, 1: {:#04x} 2: {:#04x}, sp: {}, a: {:#04x}, x: {:#04x}, y: {:#04x}, {:#010b}",
+                     self.pc, inst, mem[usize::from(self.pc)], mem[usize::from(self.pc + 1)], self.sp, self.a, self.x, self.y, res);
+            if prev_pc == self.pc &&
+            prev_sp == self.sp &&
+            prev_inst == inst &&
+            prev_a == self.a &&
+            prev_x == self.x &&
+            prev_y == self.y &&
+            prev_res == res {
+                panic!();
+            }
+            prev_pc = self.pc;
+            prev_sp = self.sp;
+            prev_inst = inst;
+            prev_a = self.a;
+            prev_x = self.x;
+            prev_y = self.y;
+            prev_res = res;
             if self.run_lda(&mut cpu_cycles, mem, inst) {
                 continue;
             } else if self.run_ldx(&mut cpu_cycles, mem, inst) {
@@ -342,7 +375,7 @@ impl CPU {
             } else if self.run_tya(&mut cpu_cycles, mem, inst) {
                 continue;
             }  else {
-                panic!("Unknown instruction")
+                panic!("Unknown instruction: {:#4x}", inst)
             }
         }
         return cpu_cycles;

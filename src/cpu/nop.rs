@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const NOP: u8 = 0xEA;
 
-    pub fn run_nop(&mut self, mut cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_nop(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::NOP {
             *cycles += 1;
         } else {

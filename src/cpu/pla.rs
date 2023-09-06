@@ -24,12 +24,12 @@ mod tests {
         let mut cpu = CPU::new();
         let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::PLA;
-        mem[0x0100] = 0xB4;
+        mem[0x01FF] = 0xB4;
         cpu.a = 0;
-        cpu.sp = 1;
+        cpu.sp = 0xFE;
         let cycles = 4;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
         assert_eq!(cpu.a, 0xB4, "a reg");
-        assert_eq!(cpu.sp, 0, "sp reg");
+        assert_eq!(cpu.sp, 0xFF, "sp reg");
     }
 }

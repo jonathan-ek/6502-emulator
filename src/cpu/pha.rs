@@ -22,9 +22,9 @@ mod tests {
         mem[0xFFFC] = CPU::PHA;
         cpu.a = 0xB4;
         let cycles = 3;
-        assert_eq!(cpu.sp, 0, "sp reg");
+        assert_eq!(cpu.sp, 0xFF, "sp reg");
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
-        assert_eq!(mem[0x0100], 0xB4, "a reg");
-        assert_eq!(cpu.sp, 1, "sp reg");
+        assert_eq!(mem[0x01FF], 0xB4, "a reg");
+        assert_eq!(cpu.sp, 0xFE, "sp reg");
     }
 }

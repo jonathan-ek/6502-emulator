@@ -45,13 +45,13 @@ mod tests {
         mem[0xFFFE] = 0x34;
         mem[0xFFFF] = 0x45;
         let cycles = 7;
-        assert_eq!(cpu.sp, 0);
+        assert_eq!(cpu.sp, 0xff);
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
-        assert_eq!(mem[0x0100], 0xFE);
-        assert_eq!(mem[0x0101], 0xFF);
-        assert_eq!(mem[0x0102], CPU::FLAG_I | CPU::FLAG_B);
+        assert_eq!(mem[0x01FF], 0xFE);
+        assert_eq!(mem[0x01FE], 0xFF);
+        assert_eq!(mem[0x01FD], CPU::FLAG_I | CPU::FLAG_B);
         assert_eq!(cpu.pc, 0x4534);
         assert_eq!(cpu.i, true);
-        assert_eq!(cpu.sp, 3);
+        assert_eq!(cpu.sp, 0xfc);
     }
 }

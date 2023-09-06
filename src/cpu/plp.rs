@@ -10,7 +10,7 @@ impl CPU {
             self.z = res & CPU::FLAG_Z > 0;
             self.i = res & CPU::FLAG_I > 0;
             self.d = res & CPU::FLAG_D > 0;
-            self.b = false;
+            // self.b = res & CPU::FLAG_B > 0;;
             self.v = res & CPU::FLAG_V > 0;
             self.n = res & CPU::FLAG_N > 0;
             *cycles += 1;
@@ -30,8 +30,8 @@ mod tests {
         let mut cpu = CPU::new();
         let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::PLP;
-        mem[0x0100] = 0b1000_0011;
-        cpu.sp = 1;
+        mem[0x01FF] = 0b1000_0011;
+        cpu.sp = 0xFE;
         let cycles = 4;
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
         assert_eq!(cpu.c, true, "c reg");
@@ -41,6 +41,6 @@ mod tests {
         assert_eq!(cpu.d, false, "d reg");
         assert_eq!(cpu.i, false, "i reg");
         assert_eq!(cpu.v, false, "v reg");
-        assert_eq!(cpu.sp, 0, "sp reg");
+        assert_eq!(cpu.sp, 0xFF, "sp reg");
     }
 }
