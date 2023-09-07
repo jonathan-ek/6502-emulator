@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const TYA: u8 = 0x98;
 
-    pub fn run_tya(&mut self, mut cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_tya(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::TYA {
             self.a = self.y;
             *cycles += 1;

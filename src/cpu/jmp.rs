@@ -9,8 +9,8 @@ impl CPU {
             self.pc = self.read_abs_addr(&mut cycles, *mem);
         } else if inst == CPU::JMP_IND {
             let addr = self.read_abs_addr(&mut cycles, *mem);
-            let mut lsb = self.read_byte(&mut cycles, *mem, addr);
-            let mut msb = self.read_byte(&mut cycles, *mem, addr+1);
+            let lsb = self.read_byte(&mut cycles, *mem, addr);
+            let msb = self.read_byte(&mut cycles, *mem, addr+1);
             self.pc = ((msb as u16) << 8) + (lsb as u16);
         } else {
             return false;

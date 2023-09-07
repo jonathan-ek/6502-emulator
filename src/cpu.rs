@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 mod lda;
 mod ldx;
 mod ldy;

@@ -23,12 +23,12 @@ impl CPU {
             let mut lo_nib_ans = lo_nib_a.wrapping_sub(lo_nib_val).wrapping_sub((!self.c) as u8);
             let mut rest: u8 = 0x00;
             if lo_nib_ans > 9 {
-                lo_nib_ans = (lo_nib_ans.wrapping_sub(6) & 0x0f);
+                lo_nib_ans = lo_nib_ans.wrapping_sub(6) & 0x0f;
                 rest = 0x01;
             }
             let mut hi_nib_ans = hi_nib_a.wrapping_sub(hi_nib_val).wrapping_sub(rest);
             if hi_nib_ans > 9 {
-                hi_nib_ans = (hi_nib_ans.wrapping_sub(6) & 0x0f);
+                hi_nib_ans = hi_nib_ans.wrapping_sub(6) & 0x0f;
             }
             self.a = (hi_nib_ans << 4) + lo_nib_ans;
             self.c = 0x0100 & bin_ans > 0;

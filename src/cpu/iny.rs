@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const INY: u8 = 0xC8;
 
-    pub fn run_iny(&mut self, mut cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_iny(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::INY {
             self.y = self.y.wrapping_add(1);
             *cycles += 1;

@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const SEI: u8 = 0x78;
 
-    pub fn run_sei(&mut self, mut cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_sei(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::SEI {
             self.i = true;
             *cycles += 1;

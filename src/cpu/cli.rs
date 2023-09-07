@@ -3,7 +3,7 @@ use crate::cpu::CPU;
 impl CPU {
     pub const CLI: u8 = 0x58;
 
-    pub fn run_cli(&mut self, mut cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_cli(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::CLI {
             self.i = false;
             *cycles += 1;
