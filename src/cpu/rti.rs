@@ -10,11 +10,10 @@ impl CPU {
             self.z = res & CPU::FLAG_Z > 0;
             self.i = res & CPU::FLAG_I > 0;
             self.d = res & CPU::FLAG_D > 0;
-            self.b = false;
             self.v = res & CPU::FLAG_V > 0;
             self.n = res & CPU::FLAG_N > 0;
-            let msb = self.pop_from_stack(&mut cycles, mem);
             let lsb = self.pop_from_stack(&mut cycles, mem);
+            let msb = self.pop_from_stack(&mut cycles, mem);
             *cycles -= 1;
             self.pc = ((msb as u16) << 8) + (lsb as u16);
         } else {
@@ -33,8 +32,8 @@ mod tests {
         let mut cpu = CPU::new();
         let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::RTI;
-        mem[0x01FF] = 0x10;
-        mem[0x01FE] = 0x20;
+        mem[0x01FF] = 0x20;
+        mem[0x01FE] = 0x10;
         mem[0x01FD] = CPU::FLAG_C | CPU::FLAG_N;
         cpu.sp = 0xFC;
 

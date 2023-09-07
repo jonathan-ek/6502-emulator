@@ -14,12 +14,35 @@ impl CPU {
         let v = val ^ 0xff;
         let val_neg = v & 0b1000_0000 > 0;
         let a_neg = self.a & 0b1000_0000 > 0;
-        let tmp = self.a as u16 + v as u16 + self.c as u16;
-        self.c = 0x0100 & tmp > 0;
-        self.a = (0x00FF & tmp) as u8;
-        let res_neg = self.a & 0b1000_0000 > 0;
-        self.v = (val_neg && a_neg && !res_neg) || (!val_neg && !a_neg && res_neg);
-        self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+        let bin_ans = self.a as u16 + v as u16 + self.c as u16;
+        if self.d {
+            let lo_nib_val = val & 0x0f;
+            let hi_nib_val = (val & 0xf0) >> 4;
+            let lo_nib_a = self.a & 0x0f;
+            let hi_nib_a = (self.a & 0xf0) >> 4;
+            let mut lo_nib_ans = lo_nib_a.wrapping_sub(lo_nib_val).wrapping_sub((!self.c) as u8);
+            let mut rest: u8 = 0x00;
+            if lo_nib_ans > 9 {
+                lo_nib_ans = (lo_nib_ans.wrapping_sub(6) & 0x0f);
+                rest = 0x01;
+            }
+            let mut hi_nib_ans = hi_nib_a.wrapping_sub(hi_nib_val).wrapping_sub(rest);
+            if hi_nib_ans > 9 {
+                hi_nib_ans = (hi_nib_ans.wrapping_sub(6) & 0x0f);
+            }
+            self.a = (hi_nib_ans << 4) + lo_nib_ans;
+            self.c = 0x0100 & bin_ans > 0;
+            let bin_a = (0x00FF & bin_ans) as u8;
+            let res_neg = bin_a & 0b1000_0000 > 0;
+            self.v = (val_neg && a_neg && !res_neg) || (!val_neg && !a_neg && res_neg);
+            self.set_flags(bin_a, CPU::FLAG_N | CPU::FLAG_Z);
+        } else {
+            self.c = 0x0100 & bin_ans > 0;
+            self.a = (0x00FF & bin_ans) as u8;
+            let res_neg = self.a & 0b1000_0000 > 0;
+            self.v = (val_neg && a_neg && !res_neg) || (!val_neg && !a_neg && res_neg);
+            self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+        }
     }
 
     pub fn run_sbc(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
@@ -65,6 +88,114 @@ impl CPU {
 mod tests {
     use crate::cpu::CPU;
 
+    #[test]
+    fn test_sbc_bcd_1() {
+        // SED      ; Decimal mode (BCD subtraction: 46 - 12 = 34)
+        // SEC
+        // LDA #$46
+        // SBC #$12 ; After this instruction, C = 1, A = $34)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x12;
+        cpu.c = true;
+        cpu.a = 0x46;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x34, "A reg");
+        assert_eq!(cpu.c, true, "c reg");
+    }
+    #[test]
+    fn test_sbc_bcd_2() {
+        // SED      ; Decimal mode (BCD subtraction: 40 - 13 = 27)
+        // SEC
+        // LDA #$40
+        // SBC #$13 ; After this instruction, C = 1, A = $27)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x13;
+        cpu.c = true;
+        cpu.a = 0x40;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x27, "A reg");
+        assert_eq!(cpu.c, true, "c reg");
+    }
+    #[test]
+    fn test_sbc_bcd_3() {
+        // SED      ; Decimal mode (BCD subtraction: 32 - 2 - 1 = 29)
+        // CLC      ; Note: carry is clear, not set!
+        // LDA #$32
+        // SBC #$02 ; After this instruction, C = 1, A = $29)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x02;
+        cpu.c = false;
+        cpu.a = 0x32;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x29, "A reg");
+        assert_eq!(cpu.c, true, "c reg");
+    }
+    #[test]
+    fn test_sbc_bcd_4() {
+        // SED      ; Decimal mode (BCD subtraction: 12 - 21)
+        // SEC
+        // LDA #$12
+        // SBC #$21 ; After this instruction, C = 0, A = $91)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x21;
+        cpu.c = true;
+        cpu.a = 0x12;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x91, "A reg");
+        assert_eq!(cpu.c, false, "c reg");
+    }
+    #[test]
+    fn test_sbc_bcd_5() {
+        // SED      ; Decimal mode (BCD subtraction: 21 - 34)
+        // SEC
+        // LDA #$21
+        // SBC #$34 ; After this instruction, C = 0, A = $87)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x34;
+        cpu.c = true;
+        cpu.a = 0x21;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x87, "A reg");
+        assert_eq!(cpu.c, false, "c reg");
+    }
+    #[test]
+    fn test_sbc_bcd_6() {
+        // SED      ; Decimal mode (BCD subtraction: 46 - 12 = 34)
+        // SEC
+        // LDA #$00
+        // SBC #$60 ; After this instruction, C = 1, A = $34)
+        let mut cpu = CPU::new();
+        let mut mem: [u8; 0x10000] = [0; 0x10000];
+        cpu.d = true;
+        mem[0xFFFC] = CPU::SBC_IM;
+        mem[0xFFFD] = 0x60;
+        cpu.c = false;
+        cpu.a = 0x00;
+        let cycles = 2;
+        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        assert_eq!(cpu.a, 0x39, "A reg");
+        assert_eq!(cpu.c, false, "c reg");
+    }
     #[test]
     fn test_sbc_1() {
         // 0 - 0 = 0

@@ -10,7 +10,7 @@ impl CPU {
             self.z = res & CPU::FLAG_Z > 0;
             self.i = res & CPU::FLAG_I > 0;
             self.d = res & CPU::FLAG_D > 0;
-            // self.b = res & CPU::FLAG_B > 0;;
+            // self.b = res & CPU::FLAG_B > 0;
             self.v = res & CPU::FLAG_V > 0;
             self.n = res & CPU::FLAG_N > 0;
             *cycles += 1;

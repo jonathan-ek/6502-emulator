@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 mod lda;
 mod ldx;
 mod ldy;
@@ -227,41 +229,8 @@ impl CPU {
     }
     pub fn run(&mut self, cycles: u32, mem: &mut [u8; 0x10000]) -> u32 {
         let mut cpu_cycles = 0;
-        let mut prev_pc: u16 = 0;
-        let mut prev_inst: u8 = 0;
-        let mut prev_sp: u8 = 0;
-        let mut prev_a: u8 = 0;
-        let mut prev_x: u8 = 0;
-        let mut prev_y: u8 = 0;
-        let mut prev_res: u8 = 0;
         while cycles == 0 || cpu_cycles < cycles {
             let inst = self.read_next_byte(&mut cpu_cycles, *mem);
-            let mut res: u8 = 0;
-            if self.c { res += CPU::FLAG_C; }
-            if self.z { res += CPU::FLAG_Z; }
-            if self.i { res += CPU::FLAG_I; }
-            if self.d { res += CPU::FLAG_D; }
-            if self.b { res += CPU::FLAG_B; }
-            if self.v { res += CPU::FLAG_V; }
-            if self.n { res += CPU::FLAG_N; }
-            println!("addr: {:#06x}, inst: {:#04x}, 1: {:#04x} 2: {:#04x}, sp: {}, a: {:#04x}, x: {:#04x}, y: {:#04x}, {:#010b}",
-                     self.pc, inst, mem[usize::from(self.pc)], mem[usize::from(self.pc + 1)], self.sp, self.a, self.x, self.y, res);
-            if prev_pc == self.pc &&
-            prev_sp == self.sp &&
-            prev_inst == inst &&
-            prev_a == self.a &&
-            prev_x == self.x &&
-            prev_y == self.y &&
-            prev_res == res {
-                panic!();
-            }
-            prev_pc = self.pc;
-            prev_sp = self.sp;
-            prev_inst = inst;
-            prev_a = self.a;
-            prev_x = self.x;
-            prev_y = self.y;
-            prev_res = res;
             if self.run_lda(&mut cpu_cycles, mem, inst) {
                 continue;
             } else if self.run_ldx(&mut cpu_cycles, mem, inst) {

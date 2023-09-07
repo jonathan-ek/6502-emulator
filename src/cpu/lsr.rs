@@ -20,7 +20,7 @@ impl CPU {
             self.c = value & 0b0000_0001 == 1;
             value = value >> 1;
             self.write_byte(&mut cycles, mem, addr, value);
-            self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+            self.set_flags(value, CPU::FLAG_N | CPU::FLAG_Z);
         } else if inst == CPU::LSR_ZPX {
             let addr = self.read_zero_page_x_addr(&mut cycles, *mem);
             let mut value = self.read_byte(&mut cycles, *mem, addr);
@@ -28,7 +28,7 @@ impl CPU {
             self.c = value & 0b0000_0001 == 1;
             value = value >> 1;
             self.write_byte(&mut cycles, mem, addr, value);
-            self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+            self.set_flags(value, CPU::FLAG_N | CPU::FLAG_Z);
         } else if inst == CPU::LSR_ABS {
             let addr = self.read_abs_addr(&mut cycles, *mem);
             let mut value = self.read_byte(&mut cycles, *mem, addr);
@@ -36,7 +36,7 @@ impl CPU {
             self.c = value & 0b0000_0001 == 1;
             value = value >> 1;
             self.write_byte(&mut cycles, mem, addr, value);
-            self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+            self.set_flags(value, CPU::FLAG_N | CPU::FLAG_Z);
         } else if inst == CPU::LSR_ABSX {
             let addr = self.read_abs_x_addr(&mut cycles, *mem, false);
             let mut value = self.read_byte(&mut cycles, *mem, addr);
@@ -44,7 +44,7 @@ impl CPU {
             self.c = value & 0b0000_0001 == 1;
             value = value >> 1;
             self.write_byte(&mut cycles, mem, addr, value);
-            self.set_flags(self.a, CPU::FLAG_N | CPU::FLAG_Z);
+            self.set_flags(value, CPU::FLAG_N | CPU::FLAG_Z);
         } else {
             return false;
         }

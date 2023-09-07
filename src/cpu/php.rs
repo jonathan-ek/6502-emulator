@@ -37,7 +37,7 @@ mod tests {
         let cycles = 3;
         assert_eq!(cpu.sp, 0xFF, "sp reg");
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
-        assert_eq!(mem[0x01FF], 0b1000_0011, "a reg");
+        assert_eq!(mem[0x01FF], 0b1011_0011, "a reg");
         assert_eq!(cpu.sp, 0xFE, "sp reg");
     }
 }

@@ -9,8 +9,8 @@ impl CPU {
             let tmp = self.pc - 1;
             let lsb = (tmp & 0x00ff) as u8;
             let msb = ((tmp & 0xff00) >> 8) as u8;
-            self.push_to_stack(&mut cycles, mem, lsb);
             self.push_to_stack(&mut cycles, mem, msb);
+            self.push_to_stack(&mut cycles, mem, lsb);
             self.pc = addr;
             *cycles -= 1;
         } else {
@@ -35,7 +35,7 @@ mod tests {
         assert_eq!(cpu.run(cycles, &mut mem), cycles);
         assert_eq!(cpu.pc, 0x6000);
         assert_eq!(cpu.sp, 0xFD);
-        assert_eq!(mem[0x01FF], 0xFE);
-        assert_eq!(mem[0x01FE], 0xFF);
+        assert_eq!(mem[0x01FF], 0xFF);
+        assert_eq!(mem[0x01FE], 0xFE);
     }
 }

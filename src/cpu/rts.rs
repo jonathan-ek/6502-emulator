@@ -5,8 +5,8 @@ impl CPU {
 
     pub fn run_rts(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
         if inst == CPU::RTS {
-            let msb = self.pop_from_stack(&mut cycles, mem);
             let lsb = self.pop_from_stack(&mut cycles, mem);
+            let msb = self.pop_from_stack(&mut cycles, mem);
             *cycles += 1;
             self.pc = ((msb as u16) << 8) + (lsb as u16) + 1;
         } else {
@@ -25,8 +25,8 @@ mod tests {
         let mut cpu = CPU::new();
         let mut mem: [u8; 0x10000] = [0; 0x10000];
         mem[0xFFFC] = CPU::RTS;
-        mem[0x01FE] = 0x10;
-        mem[0x01FD] = 0x20;
+        mem[0x01FE] = 0x20;
+        mem[0x01FD] = 0x10;
         cpu.sp = 0xFC;
 
         let cycles = 6;
