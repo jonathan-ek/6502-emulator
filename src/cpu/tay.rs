@@ -3,10 +3,11 @@ use crate::cpu::CPU;
 impl CPU {
     pub const TAY: u8 = 0xA8;
 
-    pub fn run_tay(&mut self, cycles: &mut u32, _mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_tay(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), inst: u8) -> bool {
         if inst == CPU::TAY {
             self.y = self.a;
-            *cycles += 1;
+            set_pins(self);
+        wait_for_tick(self);
             self.set_flags(self.y, CPU::FLAG_N | CPU::FLAG_Z);
         } else {
             return false;
@@ -17,7 +18,9 @@ impl CPU {
 
 #[cfg(test)]
 mod tests {
-    use crate::cpu::CPU;
+    use std::sync::mpsc;
+    use std::thread;
+    use crate::cpu::{CPU, CpuInputPins, CpuOutputPins};
 
     #[test]
     fn test_tay() {
@@ -27,7 +30,33 @@ mod tests {
         cpu.y = 0x42;
         cpu.a = 5;
         let cycles = 2;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        cpu = handler.join().unwrap();
         assert_eq!(cpu.y, 0x05);
     }
 }

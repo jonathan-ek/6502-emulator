@@ -6,29 +6,31 @@ impl CPU {
     pub const DEC_ABS: u8 = 0xCE;
     pub const DEC_ABSX: u8 = 0xDE;
 
-    fn dec(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], addr: u16) {
-        let mut val = self.read_byte(&mut cycles, *mem, addr);
+    fn dec(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), addr: u16) {
+        let mut val = self.read_byte(wait_for_tick, set_pins, addr);
         val = val.wrapping_sub(1);
-        *cycles += 1;
-        self.write_byte(&mut cycles, mem, addr, val);
+        set_pins(self);
+        wait_for_tick(self);
+        self.write_byte(wait_for_tick, set_pins, addr, val);
         self.set_flags(val, CPU::FLAG_N | CPU::FLAG_Z);
         return;
     }
 
-    pub fn run_dec(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_dec(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), inst: u8) -> bool {
         if inst == CPU::DEC_ZP {
-            let addr = self.read_zero_page_addr(&mut cycles, *mem);
-            self.dec(&mut cycles, mem, addr);
+            let addr = self.read_zero_page_addr(wait_for_tick, set_pins);
+            self.dec(wait_for_tick, set_pins, addr);
         } else if inst == CPU::DEC_ZPX {
-            let addr = self.read_zero_page_x_addr(&mut cycles, *mem);
-            self.dec(&mut cycles, mem, addr);
+            let addr = self.read_zero_page_x_addr(wait_for_tick, set_pins);
+            self.dec(wait_for_tick, set_pins, addr);
         } else if inst == CPU::DEC_ABS {
-            let addr = self.read_abs_addr(&mut cycles, *mem);
-            self.dec(&mut cycles, mem, addr);
+            let addr = self.read_abs_addr(wait_for_tick, set_pins);
+            self.dec(wait_for_tick, set_pins, addr);
         } else if inst == CPU::DEC_ABSX {
-            let addr = self.read_abs_x_addr(&mut cycles, *mem, false);
-            *cycles += 1;
-            self.dec(&mut cycles, mem, addr);
+            let addr = self.read_abs_x_addr(wait_for_tick, set_pins, false);
+            set_pins(self);
+        wait_for_tick(self);
+            self.dec(wait_for_tick, set_pins, addr);
         } else {
             return false;
         }
@@ -38,7 +40,9 @@ impl CPU {
 
 #[cfg(test)]
 mod tests {
-    use crate::cpu::CPU;
+    use std::sync::mpsc;
+    use std::thread;
+    use crate::cpu::{CPU, CpuInputPins, CpuOutputPins};
 
     #[test]
     fn test_dec_1() {
@@ -48,7 +52,33 @@ mod tests {
         mem[0xFFFD] = 0x54;
         mem[0x0054] = 54;
         let cycles = 5;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        cpu = handler.join().unwrap();
         assert_eq!(mem[0x0054], 53);
         assert_eq!(cpu.n, false);
         assert_eq!(cpu.z, false);
@@ -61,7 +91,33 @@ mod tests {
         mem[0xFFFD] = 0x54;
         mem[0x0054] = 0;
         let cycles = 5;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        cpu = handler.join().unwrap();
         assert_eq!(mem[0x0054], 0xff);
         assert_eq!(cpu.n, true);
         assert_eq!(cpu.z, false);
@@ -74,7 +130,33 @@ mod tests {
         mem[0xFFFD] = 0x54;
         mem[0x0054] = 1;
         let cycles = 5;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        cpu = handler.join().unwrap();
         assert_eq!(mem[0x0054], 0);
         assert_eq!(cpu.n, false);
         assert_eq!(cpu.z, true);
@@ -88,7 +170,33 @@ mod tests {
         mem[0x0054] = 8;
         cpu.x = 4;
         let cycles = 6;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        handler.join().unwrap();
         assert_eq!(mem[0x0054], 7);
     }
     #[test]
@@ -100,7 +208,33 @@ mod tests {
         mem[0xFFFE] = 0x40;
         mem[0x4050] = 8;
         let cycles = 6;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        handler.join().unwrap();
         assert_eq!(mem[0x4050], 7);
     }
     #[test]
@@ -113,7 +247,33 @@ mod tests {
         mem[0x4054] = 8;
         cpu.x = 4;
         let cycles = 7;
-        assert_eq!(cpu.run(cycles, &mut mem), cycles);
+        let (transmitt_to_cpu, receive_on_cpu) = mpsc::channel();
+        let (transmitt_from_cpu, receive_from_cpu) = mpsc::channel();
+        let mut data: u8;
+
+        let handler = thread::spawn(move || {
+            cpu.run(receive_on_cpu, transmitt_from_cpu);
+            return cpu;
+        });
+        for i in 0..cycles {
+            let output_pins: CpuOutputPins = receive_from_cpu.recv().unwrap();
+            if output_pins.rwb {
+                data = mem[usize::from(output_pins.addr)];
+            } else {
+                data = output_pins.data;
+                mem[usize::from(output_pins.addr)] = data;
+            }
+            transmitt_to_cpu.send(CpuInputPins {
+                data: data,
+                irq: true,
+                nmi: true,
+                phi2: true,
+                rdy: true,
+                res: true,
+                vdd: i == 0,
+            }).unwrap();
+        }
+        handler.join().unwrap();
         assert_eq!(mem[0x4054], 7);
     }
 }

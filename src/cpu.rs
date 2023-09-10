@@ -1,3 +1,5 @@
+use std::sync::mpsc::{Receiver, Sender};
+
 mod lda;
 mod ldx;
 mod ldy;
@@ -55,6 +57,22 @@ mod txa;
 mod txs;
 mod tya;
 
+pub struct CpuInputPins {
+    pub(crate) data: u8,
+    pub(crate) irq: bool,  // trigger interupt on low
+    pub(crate) nmi: bool,  // trigger interupt on low
+    pub(crate) phi2: bool,  // clock
+    pub(crate) rdy: bool,  // pauses cpu on low
+    pub(crate) res: bool,  // reset CPU, hold low 2 cycles, then 7 cycles before reset complete
+    pub(crate) vdd: bool,
+}
+pub struct CpuOutputPins {
+    pub(crate) addr: u16,
+    pub(crate) data: u8,
+    pub(crate) rwb: bool, // read or write address
+    pub(crate) sync: bool, // High during op-code read
+}
+
 pub struct CPU {
     pub(crate) pc: u16,
     pub(crate) sp: u8,
@@ -68,6 +86,8 @@ pub struct CPU {
     pub(crate) b: bool,
     pub(crate) v: bool,
     pub(crate) n: bool,
+    pub(crate) inp: CpuInputPins,
+    pub(crate) out: CpuOutputPins,
 }
 
 impl CPU {
@@ -85,6 +105,21 @@ impl CPU {
             b: false,
             v: false,
             n: false,
+            inp: CpuInputPins {
+                data: 0,
+                irq: false,
+                nmi: false,
+                phi2: false,
+                rdy: true,
+                res: false,
+                vdd: true,
+            },
+            out: CpuOutputPins {
+                addr: 0,
+                data: 0,
+                rwb: false,
+                sync: false,
+            },
         }
     }
 
@@ -97,31 +132,35 @@ impl CPU {
     pub(crate) const FLAG_V: u8 = 0b01000000;
     pub(crate) const FLAG_N: u8 = 0b10000000;
 
-    fn read_next_byte(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let res = self.read_byte(&mut cycles, mem, self.pc);
+    fn read_next_byte(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+        let res = self.read_byte(&wait_for_tick, &set_pins, self.pc);
         self.pc += 1;
         return res;
     }
-    fn read_byte(&mut self, cycles: &mut u32, mem: [u8; 0x10000], addr: u16) -> u8 {
-        *cycles += 1;
-        return mem[usize::from(addr)];
+    fn read_byte(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), addr: u16) -> u8 {
+        self.out.addr = addr;
+        self.out.rwb = true;
+        set_pins(self);
+        wait_for_tick(self);
+        return self.inp.data;
     }
-    fn write_byte(&mut self, cycles: &mut u32, mem: &mut [u8; 0x10000], addr: u16, value: u8) -> u8 {
-        *cycles += 1;
-        (*mem)[usize::from(addr)] = value;
-        return mem[usize::from(addr)];
+    fn write_byte(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), addr: u16, value: u8) -> u8 {
+        self.out.addr = addr;
+        self.out.rwb = false;
+        self.out.data = value;
+        set_pins(self);
+        wait_for_tick(self);
+        return self.inp.data;
     }
-    fn push_to_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], value: u8) {
+    fn push_to_stack(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), value: u8) {
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
-        self.write_byte(&mut cycles, mem, addr, value);
-        *cycles += 1;
+        self.write_byte(&wait_for_tick, &set_pins, addr, value);
         self.sp = self.sp.wrapping_sub(1);
     }
-    fn pop_from_stack(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000]) -> u8 {
-        *cycles += 1;
+    fn pop_from_stack(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
         self.sp = self.sp.wrapping_add(1);
         let addr: u16 = ((0x01u16) << 8) + (self.sp as u16);
-        return self.read_byte(&mut cycles, *mem, addr);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
     fn set_flags(&mut self, val: u8, flags: u8) {
         if (CPU::FLAG_N & flags) == CPU::FLAG_N {
@@ -139,212 +178,253 @@ impl CPU {
             }
         }
     }
-    fn read_zero_page_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
-        let addr = self.read_next_byte(&mut cycles, mem);
+    fn read_zero_page_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
+        let addr = self.read_next_byte(&wait_for_tick, &set_pins);
         return addr as u16;
     }
-    fn read_zero_page(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_zero_page_addr(&mut cycles, mem);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_zero_page(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+        let addr = self.read_zero_page_addr(&wait_for_tick, &set_pins);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    fn read_zero_page_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
-        let mut addr = self.read_next_byte(&mut cycles, mem);
-        *cycles += 1;  // read x
+    fn read_zero_page_x_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
+        let mut addr = self.read_next_byte(&wait_for_tick, &set_pins);
+        set_pins(self);
+        wait_for_tick(self);
         addr = addr.wrapping_add(self.x);
         return addr as u16;
     }
-    fn read_zero_page_x(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_zero_page_x_addr(&mut cycles, mem);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_zero_page_x(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+        let addr = self.read_zero_page_x_addr(&wait_for_tick, &set_pins);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    fn read_zero_page_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
-        let mut addr = self.read_next_byte(&mut cycles, mem);
-        *cycles += 1;  // read y
+    fn read_zero_page_y_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
+        let mut addr = self.read_next_byte(&wait_for_tick, &set_pins);
+        set_pins(self);
+        wait_for_tick(self);
         addr = addr.wrapping_add(self.y);
         return addr as u16;
     }
-    fn read_zero_page_y(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_zero_page_y_addr(&mut cycles, mem);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_zero_page_y(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+        let addr = self.read_zero_page_y_addr(&wait_for_tick, &set_pins);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    fn read_abs_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
-        let lsb = self.read_next_byte(&mut cycles, mem);
-        let msb = self.read_next_byte(&mut cycles, mem);
+    fn read_abs_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
+
+        let lsb = self.read_next_byte(&wait_for_tick, &set_pins);
+        let msb = self.read_next_byte(&wait_for_tick, &set_pins);
         return ((msb as u16) << 8) + (lsb as u16);
     }
-    fn read_abs(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_abs_addr(&mut cycles, mem);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_abs(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+
+        let addr = self.read_abs_addr(&wait_for_tick, &set_pins);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    fn read_abs_x_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
-        let lsb = self.read_next_byte(&mut cycles, mem);
-        let msb = self.read_next_byte(&mut cycles, mem);
+    fn read_abs_x_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), page_cycle: bool) -> u16 {
+
+        let lsb = self.read_next_byte(&wait_for_tick, &set_pins);
+        let msb = self.read_next_byte(&wait_for_tick, &set_pins);
         let addr: u16 = ((msb as u16) << 8) + (lsb as u16);
         let offset_addr = addr + (self.x as u16);
         if page_cycle && addr >> 8 != offset_addr >> 8 {
-            *cycles += 1;
+            set_pins(self);
+            wait_for_tick(self);
         }
         return offset_addr;
     }
-    fn read_abs_x(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_abs_x_addr(&mut cycles, mem, true);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_abs_x(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+
+        let addr = self.read_abs_x_addr(&wait_for_tick, &set_pins, true);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    fn read_abs_y_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
-        let lsb = self.read_next_byte(&mut cycles, mem);
-        let msb = self.read_next_byte(&mut cycles, mem);
+    fn read_abs_y_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), page_cycle: bool) -> u16 {
+
+        let lsb = self.read_next_byte(&wait_for_tick, &set_pins);
+        let msb = self.read_next_byte(&wait_for_tick, &set_pins);
         let addr: u16 = ((msb as u16) << 8) + (lsb as u16);
         let offset_addr = addr + (self.y as u16);
         if page_cycle && addr >> 8 != offset_addr >> 8 {
-            *cycles += 1;
+            set_pins(self);
+            wait_for_tick(self);
         }
         return offset_addr;
     }
-    fn read_indexed_indirect_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u16 {
+    fn read_indexed_indirect_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
         // INDX
-        let mut zp_addr = self.read_next_byte(&mut cycles, mem);
-        *cycles += 1;  // read x
+
+        let mut zp_addr = self.read_next_byte(&wait_for_tick, &set_pins);
+        set_pins(self);
+        wait_for_tick(self);  // read x
         zp_addr = zp_addr.wrapping_add(self.x);
-        let lsb = self.read_byte(&mut cycles, mem, zp_addr as u16);
-        let msb = self.read_byte(&mut cycles, mem, (zp_addr + 1) as u16);
+        let lsb = self.read_byte(&wait_for_tick, &set_pins, zp_addr as u16);
+        let msb = self.read_byte(&wait_for_tick, &set_pins, (zp_addr + 1) as u16);
         return ((msb as u16) << 8) + (lsb as u16);
     }
-    fn read_indirect_indexed_addr(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000], page_cycle: bool) -> u16 {
+    fn read_indirect_indexed_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), page_cycle: bool) -> u16 {
         // INDY
-        let zp_addr = self.read_next_byte(&mut cycles, mem);
-        let lsb = self.read_byte(&mut cycles, mem, zp_addr as u16);
-        let msb = self.read_byte(&mut cycles, mem, (zp_addr + 1) as u16);
+
+        let zp_addr = self.read_next_byte(&wait_for_tick, &set_pins);
+        let lsb = self.read_byte(&wait_for_tick, &set_pins, zp_addr as u16);
+        let msb = self.read_byte(&wait_for_tick, &set_pins, (zp_addr + 1) as u16);
         let addr: u16 = ((msb as u16) << 8) + (lsb as u16);
         let offset_addr = addr + (self.y as u16);
         if page_cycle && (addr >> 8) != (offset_addr >> 8) {
-            *cycles += 1;
+            set_pins(self);
+            wait_for_tick(self);
         }
         return offset_addr;
     }
-    fn read_abs_y(&mut self, mut cycles: &mut u32, mem: [u8; 0x10000]) -> u8 {
-        let addr = self.read_abs_y_addr(&mut cycles, mem, true);
-        return self.read_byte(&mut cycles, mem, addr);
+    fn read_abs_y(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u8 {
+
+        let addr = self.read_abs_y_addr(&wait_for_tick, &set_pins, true);
+        return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
-    pub fn run(&mut self, cycles: u32, mem: &mut [u8; 0x10000]) -> u32 {
-        let mut cpu_cycles = 0;
-        while cycles == 0 || cpu_cycles < cycles {
-            let inst = self.read_next_byte(&mut cpu_cycles, *mem);
-            if self.run_lda(&mut cpu_cycles, mem, inst) {
+    pub fn run(&mut self, input: Receiver<CpuInputPins>, output: Sender<CpuOutputPins>) {
+        let wait_for_tick = |cpu: &mut CPU| {
+            let cpu_inp: CpuInputPins = input.recv().unwrap();
+            cpu.inp.data =  cpu_inp.data;
+            cpu.inp.irq = cpu_inp.irq;
+            cpu.inp.nmi = cpu_inp.nmi;
+            cpu.inp.phi2 = cpu_inp.phi2;
+            cpu.inp.rdy = cpu_inp.rdy;
+            cpu.inp.res = cpu_inp.res;
+            cpu.inp.vdd =  cpu_inp.vdd;
+            return ;
+        };
+        let set_pins = |cpu: &mut CPU| {
+            let out = CpuOutputPins{
+                addr: cpu.out.addr,
+                data: cpu.out.data,
+                rwb: cpu.out.rwb,
+                sync: cpu.out.sync,
+            };
+            output.send(out).unwrap();
+            return ;
+        };
+        // let wait_for_tick = &Box::new(c);
+        // let set_pins = &Box::new(s);
+        loop {
+            if !self.inp.vdd {
+                return ;
+            }
+            self.out.sync = true;
+            let inst = self.read_next_byte(&wait_for_tick, &set_pins);
+            self.out.sync = false;
+            println!("{:#04x}", inst);
+            if self.run_lda(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_ldx(&mut cpu_cycles, mem, inst) {
+            } else if self.run_ldx(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_ldy(&mut cpu_cycles, mem, inst) {
+            } else if self.run_ldy(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_lsr(&mut cpu_cycles, mem, inst) {
+            } else if self.run_lsr(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_ora(&mut cpu_cycles, mem, inst) {
+            } else if self.run_ora(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_nop(&mut cpu_cycles, mem, inst) {
+            } else if self.run_nop(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_pha(&mut cpu_cycles, mem, inst) {
+            } else if self.run_pha(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_php(&mut cpu_cycles, mem, inst) {
+            } else if self.run_php(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_pla(&mut cpu_cycles, mem, inst) {
+            } else if self.run_pla(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_plp(&mut cpu_cycles, mem, inst) {
+            } else if self.run_plp(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_adc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_adc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_and(&mut cpu_cycles, mem, inst) {
+            } else if self.run_and(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_asl(&mut cpu_cycles, mem, inst) {
+            } else if self.run_asl(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_rol(&mut cpu_cycles, mem, inst) {
+            } else if self.run_rol(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bcc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bcc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bcs(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bcs(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_beq(&mut cpu_cycles, mem, inst) {
+            } else if self.run_beq(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bit(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bit(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bmi(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bmi(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bne(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bne(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bpl(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bpl(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_brk(&mut cpu_cycles, mem, inst) {
+            } else if self.run_brk(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bvc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bvc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_bvs(&mut cpu_cycles, mem, inst) {
+            } else if self.run_bvs(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_clc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_clc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_cld(&mut cpu_cycles, mem, inst) {
+            } else if self.run_cld(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_cli(&mut cpu_cycles, mem, inst) {
+            } else if self.run_cli(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_clv(&mut cpu_cycles, mem, inst) {
+            } else if self.run_clv(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_cmp(&mut cpu_cycles, mem, inst) {
+            } else if self.run_cmp(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_cpx(&mut cpu_cycles, mem, inst) {
+            } else if self.run_cpx(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_cpy(&mut cpu_cycles, mem, inst) {
+            } else if self.run_cpy(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_dec(&mut cpu_cycles, mem, inst) {
+            } else if self.run_dec(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_dex(&mut cpu_cycles, mem, inst) {
+            } else if self.run_dex(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_dey(&mut cpu_cycles, mem, inst) {
+            } else if self.run_dey(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_eor(&mut cpu_cycles, mem, inst) {
+            } else if self.run_eor(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_inc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_inc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_inx(&mut cpu_cycles, mem, inst) {
+            } else if self.run_inx(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_iny(&mut cpu_cycles, mem, inst) {
+            } else if self.run_iny(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_jmp(&mut cpu_cycles, mem, inst) {
+            } else if self.run_jmp(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_jsr(&mut cpu_cycles, mem, inst) {
+            } else if self.run_jsr(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_ror(&mut cpu_cycles, mem, inst) {
+            } else if self.run_ror(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_rti(&mut cpu_cycles, mem, inst) {
+            } else if self.run_rti(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_rts(&mut cpu_cycles, mem, inst) {
+            } else if self.run_rts(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sbc(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sbc(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sec(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sec(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sed(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sed(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sei(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sei(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sta(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sta(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_stx(&mut cpu_cycles, mem, inst) {
+            } else if self.run_stx(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_sty(&mut cpu_cycles, mem, inst) {
+            } else if self.run_sty(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_tax(&mut cpu_cycles, mem, inst) {
+            } else if self.run_tax(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_tay(&mut cpu_cycles, mem, inst) {
+            } else if self.run_tay(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_tsx(&mut cpu_cycles, mem, inst) {
+            } else if self.run_tsx(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_txa(&mut cpu_cycles, mem, inst) {
+            } else if self.run_txa(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_txs(&mut cpu_cycles, mem, inst) {
+            } else if self.run_txs(&wait_for_tick, &set_pins, inst) {
                 continue;
-            } else if self.run_tya(&mut cpu_cycles, mem, inst) {
+            } else if self.run_tya(&wait_for_tick, &set_pins, inst) {
                 continue;
             }  else {
-                panic!("Unknown instruction: {:#4x}", inst)
+                panic!("Unknown instruction: {:#4x}", inst);
             }
         }
-        return cpu_cycles;
     }
 }

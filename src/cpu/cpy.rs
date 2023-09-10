@@ -12,15 +12,15 @@ impl CPU {
         self.z = self.y == tmp;
     }
 
-    pub fn run_cpy(&mut self, mut cycles: &mut u32, mem: &mut [u8; 0x10000], inst: u8) -> bool {
+    pub fn run_cpy(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU), inst: u8) -> bool {
         if inst == CPU::CPY_IM {
-            let tmp = self.read_next_byte(&mut cycles, *mem);
+            let tmp = self.read_next_byte(wait_for_tick, set_pins);
             self.cpy(tmp);
         } else if inst == CPU::CPY_ZP {
-            let tmp = self.read_zero_page(&mut cycles, *mem);
+            let tmp = self.read_zero_page(wait_for_tick, set_pins);
             self.cpy(tmp);
         } else if inst == CPU::CPY_ABS {
-            let tmp = self.read_abs(&mut cycles, *mem);
+            let tmp = self.read_abs(wait_for_tick, set_pins);
             self.cpy(tmp);
         } else {
             return false;
