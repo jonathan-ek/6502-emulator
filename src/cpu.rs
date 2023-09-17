@@ -209,7 +209,6 @@ impl CPU {
         return self.read_byte(&wait_for_tick, &set_pins, addr);
     }
     fn read_abs_addr(&mut self, wait_for_tick: &dyn Fn(&mut CPU), set_pins: &dyn Fn(&mut CPU)) -> u16 {
-
         let lsb = self.read_next_byte(&wait_for_tick, &set_pins);
         let msb = self.read_next_byte(&wait_for_tick, &set_pins);
         return ((msb as u16) << 8) + (lsb as u16);
@@ -300,16 +299,38 @@ impl CPU {
             output.send(out).unwrap();
             return ;
         };
-        // let wait_for_tick = &Box::new(c);
-        // let set_pins = &Box::new(s);
         loop {
             if !self.inp.vdd {
                 return ;
             }
+            if !self.inp.res {
+                while !self.inp.res {
+                    set_pins(self);
+                    wait_for_tick(self);
+                }
+                for i in 0..7 {
+                    set_pins(self);
+                    wait_for_tick(self);
+                }
+                let lsb = self.read_byte(&wait_for_tick, &set_pins, 0xFFFC);
+                let msb = self.read_byte(&wait_for_tick, &set_pins, 0xFFFD);
+                self.pc =  ((msb as u16) << 8) + (lsb as u16);
+                self.sp = 255;
+                self.a = 0;
+                self.x = 0;
+                self.y = 0;
+                self.c = false;
+                self.z = false;
+                self.i = false;
+                self.d = false;
+                self.b = false;
+                self.v = false;
+                self.n = false;
+            }
             self.out.sync = true;
             let inst = self.read_next_byte(&wait_for_tick, &set_pins);
+            // println!("{:#06x}: {:#04x}", self.pc, inst);
             self.out.sync = false;
-            println!("{:#04x}", inst);
             if self.run_lda(&wait_for_tick, &set_pins, inst) {
                 continue;
             } else if self.run_ldx(&wait_for_tick, &set_pins, inst) {
